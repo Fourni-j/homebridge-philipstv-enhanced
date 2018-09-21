@@ -7,7 +7,7 @@ var wol = require('wake_on_lan');
 module.exports = function(homebridge) {
     Service = homebridge.hap.Service;
     Characteristic = homebridge.hap.Characteristic;
-    homebridge.registerAccessory("homebridge-philipstv-enhanced", "PhilipsTV", HttpStatusAccessory);
+    homebridge.registerAccessory("homebridge-philipstv-revisited", "PhilipsTV", HttpStatusAccessory);
 }
 
 function HttpStatusAccessory(log, config) {
@@ -68,11 +68,12 @@ function HttpStatusAccessory(log, config) {
 
     // POWER
     this.power_url = this.protocol + "://" + this.ip_address + ":" + this.portno + "/" + this.api_version + "/powerstate";
+    this.setPower_url = this.protocol + "://" + this.ip_address + ":" + this.portno + "/" + this.api_version + "/input/key";
     this.power_on_body = JSON.stringify({
-        "powerstate": "On"
+        "key": "Standby"
     });
     this.power_off_body = JSON.stringify({
-        "powerstate": "Standby"
+        "key": "Standby"
     });
 
     // Volume
@@ -297,7 +298,7 @@ HttpStatusAccessory.prototype = {
     },
 
     setPowerState: function(powerState, callback, context) {
-        var url = this.power_url;
+        var url = this.setPower_url;
         var body;
         var that = this;
 
@@ -310,56 +311,58 @@ HttpStatusAccessory.prototype = {
 
         this.set_attempt = this.set_attempt + 1;
 
-        if (powerState) {
-            if (this.model_year_nr <= 2013) {
-                this.log("Power On is not possible for model_year before 2014.");
-                callback(new Error("Power On is not possible for model_year before 2014."));
-            }
-            body = this.power_on_body;
-            this.log("setPowerState - Will power on");
-			// If Mac Addr for WOL is set
-			if (this.wol_url) {
-				that.log('setPowerState - Sending WOL');
-				this.wolRequest(this.wol_url, function(error, response) {
-					that.log('setPowerState - WOL callback response: %s', response);
-					that.log('setPowerState - powerstate attempt, attempt id: ', 8);
-					//execute the callback immediately, to give control back to homekit
-					callback(error, that.state_power);
-					that.setPowerStateLoop(8, url, body, powerState, function(error, state_power) {
-						that.state_power = state_power;
-						if (error) {
-							that.state_power = false;
-							that.log("setPowerStateLoop - ERROR: %s", error);
-							if (that.switchService) {
-								that.switchService.getCharacteristic(Characteristic.On).setValue(that.state_power, null, "statuspoll");
-							}
-						}
-					});
-				}.bind(this));
-			} 
-        } else {
+        this.log.debug("Endpoint: %s ", url);
+
+        // if (powerState) {
+        //     if (this.model_year_nr <= 2013) {
+        //         this.log("Power On is not possible for model_year before 2014.");
+        //         callback(new Error("Power On is not possible for model_year before 2014."));
+        //     }
+        //     body = this.power_on_body;
+        //     this.log("setPowerState - Will power on");
+			// // If Mac Addr for WOL is set
+			// if (this.wol_url) {
+			// 	that.log('setPowerState - Sending WOL');
+			// 	this.wolRequest(this.wol_url, function(error, response) {
+			// 		that.log('setPowerState - WOL callback response: %s', response);
+			// 		that.log('setPowerState - powerstate attempt, attempt id: ', 8);
+			// 		//execute the callback immediately, to give control back to homekit
+			// 		callback(error, that.state_power);
+			// 		that.setPowerStateLoop(8, url, body, powerState, function(error, state_power) {
+			// 			that.state_power = state_power;
+			// 			if (error) {
+			// 				that.state_power = false;
+			// 				that.log("setPowerStateLoop - ERROR: %s", error);
+			// 				if (that.switchService) {
+			// 					that.switchService.getCharacteristic(Characteristic.On).setValue(that.state_power, null, "statuspoll");
+			// 				}
+			// 			}
+			// 		});
+			// 	}.bind(this));
+			// }
+        // } else {
             body = this.power_off_body;
-            this.log("setPowerState - Will power off");
+            // this.log("setPowerState - Will power off");
             that.setPowerStateLoop(0, url, body, powerState, function(error, state_power) {
                 that.state_power = state_power;
                 if (error) {
-                    that.state_power = false;
+                    that.state_power = true;
                     that.log("setPowerStateLoop - ERROR: %s", error);
                 }
                 if (that.switchService) {
                     that.switchService.getCharacteristic(Characteristic.On).setValue(that.state_power, null, "statuspoll");
                 }
-                if (that.ambilightService) {
-                    that.state_ambilight = false;
-                    that.ambilightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll");
-                }
-                 if (that.volumeService) {
-                    that.state_volume = false;
-                    that.volumeService.getCharacteristic(Characteristic.On).setValue(that.state_volume, null, "statuspoll");
-                }
+                // if (that.ambilightService) {
+                //     that.state_ambilight = false;
+                //     that.ambilightService.getCharacteristic(Characteristic.On).setValue(that.state_ambilight, null, "statuspoll");
+                // }
+                //  if (that.volumeService) {
+                //     that.state_volume = false;
+                //     that.volumeService.getCharacteristic(Characteristic.On).setValue(that.state_volume, null, "statuspoll");
+                // }
                 callback(error, that.state_power);
             }.bind(this));
-        }
+        // }
     },
 
     getPowerState: function(callback, context) {
@@ -979,7 +982,7 @@ HttpStatusAccessory.prototype = {
 
             return [informationService, this.switchService, this.volumeService, this.NextInputService, this.PreviousInputService, this.ambilightService];
         } else {
-            return [informationService, this.switchService, this.NextInputService, this.PreviousInputService, this.volumeService];
+            return [informationService, this.switchService];
         }
     }
 };
